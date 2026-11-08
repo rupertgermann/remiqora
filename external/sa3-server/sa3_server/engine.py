@@ -2,6 +2,7 @@
 cache, which are resident, and one `run()` that turns a job into WAV files."""
 from __future__ import annotations
 
+import json
 import logging
 import random
 import threading
@@ -81,7 +82,8 @@ class Engine:
             if name in self._models:
                 self._models.move_to_end(name)
                 return self._models[name]
-            if installed_models().get(name) is None:
+            checkpoint = installed_models().get(name)
+            if checkpoint is None:
                 raise FileNotFoundError(
                     f"model '{name}' is not downloaded: accept the licence on "
                     f"https://huggingface.co/{MODEL_SPECS[name]['repo']} and download it from Remiqora's "
@@ -93,13 +95,25 @@ class Engine:
                 del model
                 self._free()
             from stable_audio_3 import StableAudioModel
+            from stable_audio_3.loading_utils import load_diffusion_cond
 
             self._disable_flash_attention_if_unusable()
 
             self._loading = name
             t0 = time.time()
             try:
-                model = StableAudioModel.from_pretrained(name, device=self.device)
+                snapshot = Path(checkpoint).parent
+                config = json.loads((snapshot / "model_config.json").read_text(encoding="utf-8"))
+                for conditioner in config["model"]["conditioning"]["configs"]:
+                    if conditioner["type"] == "t5gemma":
+                        # Base configs can reference a gated sibling; use their bundled encoder offline.
+                        conditioner["config"]["model_path"] = str(snapshot)
+                device = self.device_name()
+                model_half = torch.cuda.is_available()
+                loaded = load_diffusion_cond(config, checkpoint, device=device, model_half=model_half)
+                loaded.use_lora = False
+                loaded.lora_names = []
+                model = StableAudioModel(loaded, config, device, model_half)
             finally:
                 self._loading = None
             self._models[name] = model
