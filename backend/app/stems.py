@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -48,7 +49,7 @@ _jobs: dict[int, StemJob] = {}
 
 
 def running_pids() -> list[int]:
-    """Root PIDs of the Demucs runs in flight (`uv run demucs`; the separation runs in its child)."""
+    """Root PIDs of the Demucs runs in flight."""
     return [j.proc.pid for j in _jobs.values() if j.proc is not None and j.proc.returncode is None]
 
 
@@ -145,9 +146,15 @@ async def _run(track_id: int) -> None:
             env = os.environ.copy()
             env["PATH"] = f"{FFMPEG_BIN_DIR}{os.pathsep}{env.get('PATH', '')}"
 
+            # PyTorch's Demucs MPS path uses an MPSNDArray method introduced in macOS 15.
+            macos_major = platform.mac_ver()[0].split(".")[0]
+            device_args = ["--device", "cpu"] if macos_major.isdecimal() and int(macos_major) < 15 else []
+            # Use the provisioned macOS environment without letting uv replace it at job start.
+            command = [str(DEMUCS_DIR / ".venv" / "bin" / "demucs")] if sys.platform == "darwin" else ["uv", "run", "demucs"]
             with open(log_path, "w", encoding="utf-8", errors="replace") as log_file:
                 proc = await asyncio.create_subprocess_exec(
-                    "uv", "run", "demucs", "-n", engine_settings.get("demucs")["model"], "-o", str(out_dir), str(audio_path),
+                    *command, *device_args, "-n", engine_settings.get("demucs")["model"],
+                    "-o", str(out_dir), str(audio_path),
                     cwd=str(DEMUCS_DIR),
                     env=env,
                     stdout=log_file,
