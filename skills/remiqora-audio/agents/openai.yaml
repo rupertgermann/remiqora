@@ -1,0 +1,4 @@
+interface:
+  display_name: "Remiqora Audio"
+  short_description: "Generate local WAV sounds and music for games"
+  default_prompt: "Use $remiqora-audio to generate sound effects, instrumental music or songs directly into this game's audio assets."
