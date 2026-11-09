@@ -23,7 +23,7 @@ export default {
     desc: {
       idea: 'Der Assistent schreibt den Prompt',
       ace: 'Songs, Covers, Remixe',
-      yue: 'Ganze Songs mit Gesang',
+      yue: 'Songs und Instrumentals',
       sa3: 'Instrumentals, Sounds, Ergänzungen',
       lora: 'Einen Stil mit eigenen Titeln trainieren',
       editor: 'Mischen und Arrangieren',

@@ -89,7 +89,7 @@ Remiqora's interface and installer come in 20 languages: see [Languages](#langua
 The first tab in the header. Describe a song or an instrumental in your own words, pick an engine, and a local language model, the prompt assistant, writes the prompt in that engine's own format:
 
 - **ACE-Step**: a style caption, lyrics, tempo, key and length. While the engine runs, ACE-Step's own language model can write it instead: faster, but it strays further from the idea.
-- **YuE2** (songs): the song's language as the first tag (`Russian`, `English`...), then 5–9 style tags in English, and lyrics split into sections, in the language of the idea or the one you pick.
+- **YuE2**: English style tags for instrumentals and songs. For songs, the assistant also writes lyrics in sections and puts the lyrics language first in the tags.
 - **Stable Audio 3** (instrumentals and sounds): Stable Audio's own classifier first decides whether the idea is music or a sound ("rain on a window" is a sound, not a song), then the prompt is written with its instructions for that kind; a *Music / Sound* switch fixes a wrong guess, and a sound gets the `small-sfx` checkpoint when it is downloaded.
 
 While the prompt is written, the page shows the stage, an estimated percent, the text as it grows and a *Stop* button. The prompt then opens as editable fields. *Generate* starts the engine if needed and sends the job; the track is named after the idea and lands in the engine's feed. *Open in the form* puts the prompt into the engine's own page for the settings this page leaves out, and the form takes it as soon as the engine has started. The idea and the prompt stay when you leave the page and after a reload.
@@ -178,6 +178,8 @@ Plus: 10–300 s duration, batch of 1/2/4 variants, mp3/wav/flac formats, advanc
 ## YuE2 and SheetSage2: generation
 
 ![YuE2: generation and track feed](docs/screenshots/en/03-yue2.png)
+
+Select **Instrumental** to use `[instrumental]` as the lyrics input and lock CoT to `full`. The first generation downloads the 140 MB [Instrumental LoRA](https://huggingface.co/Mothersuperior/YuE2-instrumental-cot-full-loras) for local use. This mode requires an audio.cpp build with YuE2 AR LoRA support.
 
 Three **CoT (Chain-of-Thought)** modes: `off` — straight to audio; `melody` — the arrangement is built around a given melody (ABC); `full` — the model first builds a symbolic plan (melody + chords), then generates the audio.
 

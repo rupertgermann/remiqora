@@ -104,7 +104,14 @@ export const useYue2Store = defineStore('yue2', {
       this._healthTimer = null
     },
     /** `title` names the cards and tracks (the style when not given; "From an idea" passes the idea). */
-    async generateBatch(params: { lyrics: string; style: string; cot: CotMode; precision: 'q8_0' | 'q4_0'; baseSeed: number; randomSeed: boolean; batchSize: number; options: GenerateOptions; title?: string }) {
+    async generateBatch(params: { lyrics: string; instrumental: boolean; precision: 'q8_0' | 'q4_0'; baseSeed: number; randomSeed: boolean; batchSize: number; options: GenerateOptions; title?: string }) {
+      const { instrumental, precision } = params
+      const lyrics = instrumental ? api.YUE2_INSTRUMENTAL_LYRICS : params.lyrics
+      const options = { ...params.options }
+      if (instrumental) {
+        options.cot = api.YUE2_INSTRUMENTAL_COT
+        delete options.abc
+      }
       const newJobs: Yue2Job[] = []
       for (let i = 0; i < params.batchSize; i++) {
         const seed = params.randomSeed ? Math.floor(Math.random() * 2147483647) : params.baseSeed + i
@@ -112,14 +119,14 @@ export const useYue2Store = defineStore('yue2', {
           id: `g_${Date.now()}_${i}`,
           status: 'queued',
           createdAt: Date.now(),
-          title: params.title || params.style,
-          style: params.style,
-          lyrics: params.lyrics,
-          cot: params.cot,
-          precision: params.precision,
+          title: params.title || options.style,
+          style: options.style,
+          lyrics,
+          cot: options.cot,
+          precision,
           seed,
           finalized: false,
-          params: { ...params.options, cot: params.cot, precision: params.precision, style: params.style, lyrics: params.lyrics },
+          params: { ...options, precision, lyrics, instrumental },
         })
       }
       this.jobs.unshift(...newJobs)
@@ -130,16 +137,16 @@ export const useYue2Store = defineStore('yue2', {
         // original (pre-unshift) reference never triggers a re-render even
         // though the same data ends up saved to the server correctly.
         const job = this.jobs.find((j) => j.id === id)
-        if (job) await this._generateOne(job, params.options)
+        if (job) await this._generateOne(job, options, instrumental)
       }
     },
-    async _generateOne(job: Yue2Job, options: GenerateOptions) {
+    async _generateOne(job: Yue2Job, options: GenerateOptions, instrumental: boolean) {
       job.status = 'running'
       const aborter = new AbortController()
       this._aborters[job.id] = aborter
       try {
         const started = performance.now()
-        const result = await api.generateTrack(job.lyrics, job.seed, options, job.precision, aborter.signal)
+        const result = await api.generateTrack(job.lyrics, job.seed, options, job.precision, instrumental, aborter.signal)
         const wallMs = result.timing?.wall_ms ?? performance.now() - started
         const durationMs = result.timing?.audio_duration_ms
         if (typeof result.audio !== 'string') throw new Error(t('storeErrors.serverNoAudio'))

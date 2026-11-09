@@ -21,6 +21,7 @@ const { t, tm } = useI18n()
 
 interface Yue2Preset {
   name: string
+  instrumental?: boolean
   lyrics: string
   style: string
   cot: CotMode
@@ -49,9 +50,10 @@ function saveCurrentPreset() {
   if (!name) return
   const preset: Yue2Preset = {
     name,
+    instrumental: instrumental.value,
     lyrics: lyrics.value,
     style: style.value,
-    cot: cot.value,
+    cot: songCot.value,
     precision: precision.value,
     abc: abc.value,
     cfgScale: cfgScale.value,
@@ -71,9 +73,10 @@ function saveCurrentPreset() {
 function applyPreset(name: string) {
   const p = presets.value.find((x) => x.name === name)
   if (!p) return
+  instrumental.value = p.instrumental === true
   lyrics.value = p.lyrics || ''
   style.value = p.style || ''
-  cot.value = p.cot || 'off'
+  songCot.value = p.cot || 'off'
   precision.value = p.precision || 'q8_0'
   abc.value = p.abc || ''
   cfgScale.value = p.cfgScale ?? null
@@ -94,12 +97,15 @@ onMounted(loadPresets)
 // they are sent while the engine is stopped, this form only appears once it runs, and they wait in the store.
 function applyInsert(params: typeof store.pendingParamsInsert) {
   if (!params) return
-  if (params.lyrics != null) lyrics.value = params.lyrics
+  instrumental.value = params.instrumental === true
+  if (!instrumental.value) {
+    if (params.lyrics != null) lyrics.value = params.lyrics
+    if (params.cot != null) songCot.value = params.cot
+    if (params.abc != null) abc.value = params.abc
+  }
   if (params.style != null) style.value = params.style
-  if (params.cot != null) cot.value = params.cot
   if (params.precision != null) precision.value = params.precision
   if (params.seed != null) seed.value = params.seed
-  if (params.abc != null) abc.value = params.abc
   if (params.cfg_scale != null) cfgScale.value = params.cfg_scale
   if (params.num_inference_steps != null) numInferenceSteps.value = params.num_inference_steps
   if (params.semantic) Object.assign(semantic, params.semantic)
@@ -109,9 +115,14 @@ function applyInsert(params: typeof store.pendingParamsInsert) {
 watch(() => store.pendingParamsInsert, applyInsert)
 onMounted(() => applyInsert(store.pendingParamsInsert))
 
+const instrumental = ref(false)
 const lyrics = ref('')
 const style = ref('')
-const cot = ref<CotMode>('off')
+const songCot = ref<CotMode>('off')
+const cot = computed({
+  get: () => instrumental.value ? api.YUE2_INSTRUMENTAL_COT : songCot.value,
+  set: (mode: CotMode) => { songCot.value = mode },
+})
 const precision = ref<'q8_0' | 'q4_0'>('q8_0')
 // Only the precisions installed (the installer may have fetched one); a remembered one that is gone falls back.
 const features = useFeaturesStore()
@@ -274,6 +285,7 @@ watch(
   () => store.pendingAbcInsert,
   (val) => {
     if (!val) return
+    instrumental.value = false
     abc.value = val
     if (cot.value === 'off') cot.value = 'melody'
     store.clearPendingAbcInsert()
@@ -328,7 +340,7 @@ function buildOptions(): GenerateOptions {
     if (v != null) options[`semantic_${f.key}`] = v
   }
   if (cot.value !== 'off') {
-    if (abc.value.trim()) options.abc = abc.value.trim()
+    if (!instrumental.value && abc.value.trim()) options.abc = abc.value.trim()
     for (const f of SAMPLING_FIELDS) {
       const v = num(abcSampling[f.key])
       if (v != null) options[`abc_${f.key}`] = v
@@ -339,7 +351,7 @@ function buildOptions(): GenerateOptions {
 
 async function submit() {
   formError.value = ''
-  if (!lyrics.value.trim()) {
+  if (!instrumental.value && !lyrics.value.trim()) {
     formError.value = t('yueGen.enterLyrics')
     return
   }
@@ -356,8 +368,7 @@ async function submit() {
   try {
     await store.generateBatch({
       lyrics: lyrics.value.trim(),
-      style: style.value.trim(),
-      cot: cot.value,
+      instrumental: instrumental.value,
       precision: precision.value,
       baseSeed: Number.isFinite(seed.value) ? seed.value : 831001,
       randomSeed: randomSeed.value,
@@ -430,7 +441,12 @@ async function submit() {
         </div>
       </div>
 
-      <div class="space-y-1.5">
+      <label class="flex items-center gap-2 text-sm">
+        <input v-model="instrumental" type="checkbox" class="rounded border-border" />
+        {{ t('aceGen.instrumental') }}
+      </label>
+      <p v-if="instrumental" class="text-xs text-text-dim">{{ t('yueGen.instrumentalHint') }}</p>
+      <div v-else class="space-y-1.5">
         <div class="flex items-center justify-between">
           <label class="text-[13px] font-medium text-text">{{ t('aceGen.lyricsLabel') }}</label>
           <HelpIconButton @click="helpOpen = 'lyrics'" />
@@ -452,7 +468,7 @@ async function submit() {
             <label class="text-[13px] font-medium text-text">{{ t('yueGen.cotModeLabel') }}</label>
             <HelpIconButton @click="helpOpen = 'cot'" />
           </div>
-          <select v-model="cot" class="w-full rounded-lg border border-border bg-panel-2 p-2 text-sm text-text">
+          <select v-model="cot" :disabled="instrumental" class="w-full rounded-lg border border-border bg-panel-2 p-2 text-sm text-text disabled:opacity-60">
             <option v-for="o in COT_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
           </select>
         </div>
@@ -465,7 +481,7 @@ async function submit() {
       </div>
       <p class="text-xs text-text-dim">{{ COT_HINTS[cot] }}</p>
 
-      <div v-if="cot !== 'off'" class="space-y-3 rounded-lg border border-border bg-panel-2/50 p-3">
+      <div v-if="!instrumental && cot !== 'off'" class="space-y-3 rounded-lg border border-border bg-panel-2/50 p-3">
         <div>
           <label class="text-[13px] font-medium text-text">{{ t('yueGen.abcScore') }}</label>
           <textarea v-model="abc" rows="6" class="w-full rounded-lg border border-border bg-panel-2 p-2.5 font-mono text-xs text-text"></textarea>

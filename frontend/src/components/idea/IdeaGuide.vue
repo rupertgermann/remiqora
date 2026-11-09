@@ -2,6 +2,7 @@
 // The guide of "From an idea", in the editor guide's look: a quick start, what the assistant writes for
 // each engine, who writes the prompt, the assistant and the GPU, what comes after the prompt, tips and limits.
 // Opened from the idea page and from the app's help.
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import HelpModal from '../shared/HelpModal.vue'
@@ -16,6 +17,13 @@ const emit = defineEmits<{ close: [] }>()
 const { t, tm } = useI18n()
 const router = useRouter()
 const route = useRoute()
+const engineRows = computed(() =>
+  (tm('idea.guide.engines') as { engine: string; what: string; kind: string }[]).map((row) =>
+    row.engine === 'YuE2-3B'
+      ? { ...row, what: t('idea.yue2GuidePrompt'), kind: t('idea.yue2GuideKind') }
+      : row,
+  ),
+)
 
 function openModels() {
   emit('close')
@@ -37,7 +45,7 @@ function openModels() {
             { key: 'what', label: t('idea.guide.whatHeader') },
             { key: 'kind', label: t('idea.guide.kindHeader') },
           ]"
-          :rows="tm('idea.guide.engines') as { engine: string; what: string; kind: string }[]"
+          :rows="engineRows"
           min-width="36rem"
         />
       </HelpSection>
