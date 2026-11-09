@@ -17,6 +17,7 @@ from .api.routes_proxy import router as proxy_router
 from .api.routes_stems import router as stems_router
 from .api.routes_system import router as system_router
 from .api.routes_tracks import router as tracks_router
+from .api.routes_yue2_instrumental import router as yue2_instrumental_router
 from .api.routes_yue2_upload import router as yue2_upload_router
 from .config import FRONTEND_DIST_DIR
 from .orchestrator.manager import manager
@@ -44,8 +45,9 @@ app.include_router(projects_router)
 app.include_router(settings_router)
 app.include_router(system_router)
 app.include_router(lora_dataset_router)
-# Registered before proxy_router's catch-all so this exact path wins.
+# Register Remiqora's YuE2 routes before the native API proxy.
 app.include_router(yue2_upload_router)
+app.include_router(yue2_instrumental_router)
 app.include_router(sa3_weights_router)
 app.include_router(engines_router)
 app.include_router(assistant_router)

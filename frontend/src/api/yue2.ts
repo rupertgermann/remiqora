@@ -3,6 +3,8 @@ import { getConfig } from './orchestrator'
 import type { Yue2ModelSpecConfig } from './orchestrator'
 
 const BASE = '/api/yue2'
+export const YUE2_INSTRUMENTAL_LYRICS = '[instrumental]'
+export const YUE2_INSTRUMENTAL_COT = 'full'
 
 export type Yue2ModelSpec = Yue2ModelSpecConfig
 
@@ -183,7 +185,16 @@ export async function runTask(model: string, request: unknown, signal?: AbortSig
   })
 }
 
-export async function generateTrack(lyrics: string, seed: number, options: GenerateOptions, precision: 'q8_0' | 'q4_0', signal?: AbortSignal): Promise<TaskRunResult> {
+export async function generateTrack(lyrics: string, seed: number, options: GenerateOptions, precision: 'q8_0' | 'q4_0', instrumental: boolean, signal?: AbortSignal): Promise<TaskRunResult> {
+  if (instrumental) {
+    const { id } = await apiFetch<{ id: string }>(`${BASE}/instrumental/load`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ precision }),
+      signal,
+    })
+    return runTask(id, { lyrics, seed, options }, signal)
+  }
   const spec = await getYue2ModelSpec()
   await ensureLoaded(spec, precisionSessionOptions(precision))
   return runTask(spec.id, { lyrics, seed, options }, signal)

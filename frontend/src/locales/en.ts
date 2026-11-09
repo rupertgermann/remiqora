@@ -22,7 +22,7 @@ export default {
     desc: {
       idea: 'The assistant writes the prompt',
       ace: 'Songs, covers, remixes',
-      yue: 'Whole songs with vocals',
+      yue: 'Songs and instrumentals',
       sa3: 'Instrumentals, sounds, fill-ins',
       lora: 'Train a style on your own tracks',
       editor: 'Mixing and arranging',
@@ -399,6 +399,7 @@ export default {
     },
   },
   yueGen: {
+    instrumentalHint: 'Uses CoT full and the Instrumental LoRA. The first generation downloads the 140 MB adapter.',
     submit: 'Create music',
     submitting: 'Submitting…',
     enterLyrics: 'Enter the lyrics.',
@@ -1595,7 +1596,8 @@ export default {
     startingEngine: 'Starting {engine}…',
     engine: 'Generate with:',
     engineHint: { ace: 'ACE-Step: fast, songs and instrumentals.', yue2: 'YuE2: a whole song with vocals, slower; the assistant writes the style tags and lyrics.', sa3: 'Stable Audio 3: an instrumental or a sound in seconds; the assistant works out which and follows Stable Audio\'s own instructions.' },
-    yue2OnlySongs: 'YuE2 makes songs with vocals only',
+    yue2GuidePrompt: 'English style guidance, plus sectioned lyrics for songs.',
+    yue2GuideKind: 'Songs and instrumentals. Instrumentals use CoT full and the Instrumental LoRA.',
     notInstalled: 'Not installed',
     sa3OnlyInstrumentals: 'Stable Audio 3 makes instrumentals only',
     sa3NoMusicModel: 'A downloaded medium or small-music is needed',

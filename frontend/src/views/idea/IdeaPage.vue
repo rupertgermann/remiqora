@@ -3,7 +3,7 @@
 // written for it in that engine's own format:
 // - ACE-Step: style caption, lyrics, BPM, key, length; by the prompt assistant, or by ACE-Step's own language model
 //   when the engine runs and that is picked (faster, but it strays from the idea);
-// - YuE2 (songs only): 5 to 9 style tags in English and sectioned lyrics, by the prompt assistant;
+// - YuE2: English style guidance, with sectioned lyrics for songs;
 // - Stable Audio 3 (instrumentals only): its own tag style, by the assistant with Stable Audio's own instructions.
 // The prompt is shown as editable fields; "Generate" starts the engine if needed and sends the request its own page
 // sends, then opens that page, where the track lands in the feed.
@@ -77,14 +77,12 @@ const sa3Models = computed(() => {
   return sa3Kind.value === 'sfx' ? [...list].sort((a, b) => Number(b.id === 'small-sfx') - Number(a.id === 'small-sfx')) : list
 })
 const engineInfo = computed(() => ENGINES.find((e) => e.id === engine.value)!)
-/** Installed, and able to make this kind: YuE2 sings, it makes no instrumentals. */
 function engineAvailable(id: Engine): boolean {
-  if (id === 'yue2') return features.has('yue2') && !instrumental.value
+  if (id === 'yue2') return features.has('yue2')
   if (id === 'sa3') return features.has('stableAudio') && instrumental.value && sa3Installed.value.length > 0
   return true
 }
 function unavailableReason(id: Engine): string {
-  if (id === 'yue2' && instrumental.value) return t('idea.yue2OnlySongs')
   if (id === 'sa3' && !instrumental.value) return t('idea.sa3OnlyInstrumentals')
   if (id === 'sa3' && features.has('stableAudio')) return t('idea.sa3NoMusicModel')
   return t('idea.notInstalled')
@@ -94,7 +92,7 @@ function engineRunning(id: Engine): boolean {
   return orchestrator.activeModel === model && orchestrator.statuses[model]?.status === 'running'
 }
 watch(instrumental, (instr) => {
-  if (instr && engine.value === 'yue2') engine.value = engineAvailable('sa3') ? 'sa3' : 'ace'
+  if (draft.value?.engine === 'yue2') draft.value = null
   if (!instr && engine.value === 'sa3') engine.value = 'ace'
 })
 watch(engine, (now) => { if (draft.value && draft.value.engine !== now) draft.value = null })
@@ -166,11 +164,15 @@ async function write() {
         duration: Math.max(kindOf === 'sfx' ? 0.5 : 5, Math.min(max, Math.round(dur))), writtenBy: 'assistant', seconds: seconds(),
       }
     } else if (engine.value === 'yue2') {
-      const f = await byAssistant('yue2-song', { language: effectiveLanguage.value })
-      // the language opens the tags: the one the assistant wrote the lyrics in, else the one asked for
-      const lang = typeof f.language === 'string' && f.language ? f.language : englishLanguageName(effectiveLanguage.value)
+      const isInstrumental = instrumental.value
+      const songLanguage = effectiveLanguage.value
+      const f = await byAssistant(isInstrumental ? 'ace-instrumental' : 'yue2-song', isInstrumental ? {} : { language: songLanguage })
+      if (isInstrumental !== instrumental.value || engine.value !== 'yue2') return
+      const lang = typeof f.language === 'string' && f.language ? f.language : englishLanguageName(songLanguage)
       draft.value = {
-        ...base, engine: 'yue2', caption: withLanguageTag(String(f.style ?? ''), lang), lyrics: String(f.lyrics ?? ''),
+        ...base, engine: 'yue2',
+        caption: isInstrumental ? String(f.caption ?? '') : withLanguageTag(String(f.style ?? ''), lang),
+        lyrics: isInstrumental ? '' : String(f.lyrics ?? ''),
         writtenBy: 'assistant', seconds: seconds(),
       }
     } else if (writer.value === 'ace') {
@@ -270,11 +272,12 @@ function titleOf(text: string): string {
 
 async function generate() {
   const d = draft.value
+  const isInstrumental = instrumental.value
   if (!d || !d.caption.trim()) {
     error.value = t('idea.needCaption')
     return
   }
-  if (d.engine === 'yue2' && !d.lyrics.trim()) {
+  if (d.engine === 'yue2' && !isInstrumental && !d.lyrics.trim()) {
     error.value = t('idea.needLyrics')
     return
   }
@@ -292,8 +295,7 @@ async function generate() {
     } else if (d.engine === 'yue2') {
       await yue2.generateBatch({
         lyrics: d.lyrics.trim(),
-        style: d.caption.trim(),
-        cot: 'off',
+        instrumental: isInstrumental,
         precision: precision.value,
         baseSeed: Math.floor(Math.random() * 2147483647),
         randomSeed: true,
@@ -319,7 +321,7 @@ async function openInForm() {
   const d = draft.value
   if (!d) return
   if (d.engine === 'yue2') {
-    yue2.requestInsertParams({ lyrics: d.lyrics, style: d.caption, precision: precision.value })
+    yue2.requestInsertParams({ lyrics: d.lyrics, style: d.caption, precision: precision.value, instrumental: instrumental.value })
     await router.push({ name: 'yue2' })
     return
   }
@@ -397,7 +399,7 @@ const guideOpen = ref(false)
           role="radio"
           :aria-checked="engine === e.id"
           :disabled="!engineAvailable(e.id)"
-          :title="!engineAvailable(e.id) ? unavailableReason(e.id) : t(`idea.engineHint.${e.id}`)"
+          :title="!engineAvailable(e.id) ? unavailableReason(e.id) : t(e.id === 'yue2' && instrumental ? 'yueGen.instrumentalHint' : `idea.engineHint.${e.id}`)"
           class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40"
           :class="engine === e.id ? 'border-accent1/50 bg-accent1/10 text-text' : 'border-border text-text-dim hover:border-text-dim hover:text-text'"
           @click="engine = e.id"
@@ -415,7 +417,7 @@ const guideOpen = ref(false)
            are always there and always as wide, so nothing shifts while typing, writing or after a reset. -->
       <div class="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border/60 pt-3">
         <div class="min-w-[15rem] flex-1 space-y-1 text-xs text-text-dim">
-          <p>{{ t(`idea.engineHint.${engine}`) }}</p>
+          <p>{{ t(engine === 'yue2' && instrumental ? 'yueGen.instrumentalHint' : `idea.engineHint.${engine}`) }}</p>
           <p class="leading-relaxed" :class="writer ? 'text-text-dim' : 'text-status-queued'">
             <template v-if="writer === 'ace'">{{ t('idea.byAce') }}</template>
             <template v-else-if="writer === 'assistant'">{{ assistantOnGpu ? t('idea.byAssistantGpu', { engine: MODEL_LABELS[engineInfo.model] }) : t(assistantOnCpu ? (instrumental ? 'idea.byAssistantCpuInstrumental' : 'idea.byAssistantCpu') : (instrumental ? 'idea.byAssistantInstrumental' : 'idea.byAssistant')) }}</template>
@@ -474,7 +476,7 @@ const guideOpen = ref(false)
         <label class="flex flex-col gap-1 text-xs">
           <span class="font-medium text-text">{{ t(draft.engine === 'yue2' ? 'idea.styleTags' : draft.engine === 'sa3' ? 'idea.sa3Prompt' : 'idea.caption') }}</span>
           <textarea v-model="draft.caption" :rows="draft.engine === 'sa3' ? 4 : 2" class="resize-y rounded-lg border border-border bg-panel-2 px-3 py-2 text-sm leading-relaxed text-text focus:border-accent1 focus:outline-none"></textarea>
-          <span v-if="draft.engine === 'yue2'" class="leading-relaxed text-text-dim">{{ t('idea.styleTagsHint') }}</span>
+          <span v-if="draft.engine === 'yue2' && !instrumental" class="leading-relaxed text-text-dim">{{ t('idea.styleTagsHint') }}</span>
           <span v-else-if="draft.engine === 'sa3'" class="leading-relaxed text-text-dim">{{ t('idea.sa3PromptHint') }}</span>
         </label>
         <label v-if="!instrumental" class="flex flex-col gap-1 text-xs">
@@ -522,7 +524,7 @@ const guideOpen = ref(false)
             <span class="text-text-dim">{{ t('idea.sa3Max', { max: sa3Max }) }}</span>
           </label>
         </div>
-        <!-- YuE2: the length follows the lyrics, the tempo is a tag; only the precision to pick -->
+        <!-- YuE2 model precision -->
         <div v-else class="flex flex-wrap items-end gap-4">
           <label v-if="yue2Precisions.length > 1" class="flex flex-col gap-1 text-xs">
             <span class="font-medium text-text">{{ t('idea.precision') }}</span>
@@ -530,7 +532,7 @@ const guideOpen = ref(false)
               <option v-for="p in yue2Precisions" :key="p" :value="p">{{ p }}</option>
             </select>
           </label>
-          <p class="max-w-md text-xs leading-relaxed text-text-dim">{{ t('idea.yue2Length') }}</p>
+          <p v-if="!instrumental" class="max-w-md text-xs leading-relaxed text-text-dim">{{ t('idea.yue2Length') }}</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-3 border-t border-border pt-4">

@@ -22,7 +22,7 @@ export default {
     desc: {
       idea: 'Промт пишет помощник',
       ace: 'Песни, каверы, ремиксы',
-      yue: 'Целые песни с вокалом',
+      yue: 'Песни и инструменталы',
       sa3: 'Инструменталы, звуки, дорисовка',
       lora: 'Обучение стиля на ваших треках',
       editor: 'Сведение и аранжировка',
@@ -399,6 +399,7 @@ export default {
     },
   },
   yueGen: {
+    instrumentalHint: 'Использует CoT full и Instrumental LoRA. При первой генерации скачивается адаптер размером 140 МБ.',
     submit: 'Создать музыку',
     submitting: 'Отправка…',
     enterLyrics: 'Введите текст песни.',
@@ -1595,7 +1596,8 @@ export default {
     startingEngine: 'Запускаем {engine}…',
     engine: 'Чем сгенерировать:',
     engineHint: { ace: 'ACE-Step: быстро, песни и инструменталы.', yue2: 'YuE2: целая песня с вокалом, дольше; теги стиля и текст пишет помощник.', sa3: 'Stable Audio 3: инструментал или звук за секунды; помощник сам поймёт, что нужно, и напишет промт по инструкциям Stable Audio.' },
-    yue2OnlySongs: 'YuE2 делает только песни с вокалом',
+    yue2GuidePrompt: 'Описание стиля на английском, для песен также текст по секциям.',
+    yue2GuideKind: 'Песни и инструменталы. Для инструменталов используются CoT full и Instrumental LoRA.',
     notInstalled: 'Не установлен',
     sa3OnlyInstrumentals: 'Stable Audio 3 делает только инструменталы',
     sa3NoMusicModel: 'Нужна скачанная medium или small-music',

@@ -1,6 +1,7 @@
 // German (de): yueGen
 export default {
   yueGen: {
+    instrumentalHint: 'Verwendet CoT full und den Instrumental-LoRA. Beim ersten Erzeugen wird der 140 MB große Adapter heruntergeladen.',
     submit: 'Musik erzeugen',
     submitting: 'Wird gesendet…',
     enterLyrics: 'Gib die Lyrics ein.',
